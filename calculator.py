@@ -11,26 +11,9 @@ st.markdown("Use this tool to see how an offset account and strategic credit car
 # --- SECTION 1: Offset Inputs ---
 st.header("1. Offset Setup")
 
-emergency_fund = st.number_input(
-    "Your Emergency Fund ($)", 
-    min_value=0, 
-    value=15000,
-    help="This is your emergency savings that stays in your offset account to reduce interest, but isn’t used to repay loans."
-)
-
-annual_savings = st.number_input(
-    "Estimated Annual Savings for Lump Sum Mortgage Repayment ($)", 
-    min_value=0, 
-    value=10000,
-    help="How much you expect to save and apply as a lump sum toward your mortgage annually."
-)
-
-bank_floating_rate = st.number_input(
-    "Your Bank's Floating Mortgage Rate (%)", 
-    min_value=0.0, 
-    value=6.5,
-    help="Used to compare interest savings and evaluate fixed vs floating rate differences."
-) / 100
+emergency_fund = st.number_input("Your Emergency Fund ($)", min_value=0, value=15000)
+annual_savings = st.number_input("Estimated Annual Savings for Lump Sum Mortgage Repayment ($)", min_value=0, value=10000)
+bank_floating_rate = st.number_input("Your Bank's Floating Mortgage Rate (%)", min_value=0.0, value=6.5) / 100
 
 # --- Optional Credit Card Strategy ---
 use_credit_card = st.checkbox(
@@ -45,38 +28,14 @@ credit_card_fee = 0
 if use_credit_card:
     st.subheader("Credit Card Use for Expense Delays")
 
-    estimated_card_spend = st.number_input(
-        "Monthly Expenses You Could Put on a Credit Card ($)", 
-        min_value=0, 
-        value=3000,
-        help="Monthly expenses you can delay using a credit card to keep cash in your offset account longer."
-    )
-
-    interest_free_days = st.slider(
-        "Card’s Full Interest-Free Period (Days)",
-        min_value=0,
-        max_value=60,
-        value=45
-    )
-
-    fee_mode = st.radio(
-        "How is your credit card fee charged?",
-        options=["Annual", "Monthly"],
-        horizontal=True
-    )
+    estimated_card_spend = st.number_input("Monthly Expenses You Could Put on a Credit Card ($)", min_value=0, value=3000)
+    interest_free_days = st.slider("Card’s Full Interest-Free Period (Days)", min_value=0, max_value=60, value=45)
+    fee_mode = st.radio("How is your credit card fee charged?", options=["Annual", "Monthly"], horizontal=True)
 
     if fee_mode == "Annual":
-        credit_card_fee = st.number_input(
-            "Annual Credit Card Fee ($)", 
-            min_value=0, 
-            value=150
-        )
+        credit_card_fee = st.number_input("Annual Credit Card Fee ($)", min_value=0, value=150)
     else:
-        monthly_fee = st.number_input(
-            "Monthly Credit Card Fee ($)", 
-            min_value=0, 
-            value=12
-        )
+        monthly_fee = st.number_input("Monthly Credit Card Fee ($)", min_value=0, value=12)
         credit_card_fee = monthly_fee * 12
 
     average_offset_days = interest_free_days / 2
@@ -131,39 +90,41 @@ with st.form("mortgage_entry_form"):
             st.session_state.mortgages[edit_index] = new_entry
         st.success("✅ Mortgage portion saved successfully.")
 
+# --- Display List with Delete Buttons ---
 if st.session_state.mortgages:
     st.subheader("📋 Mortgage List")
     for i, m in enumerate(st.session_state.mortgages):
-        st.markdown(f"**Portion {i+1}:** ${m['balance']:,.2f} @ {m['rate']*100:.2f}% — {m['type']} (Expires: {m['expiry_date'].strftime('%B %d, %Y')})")
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.markdown(f"**Portion {i+1}:** ${m['balance']:,.2f} @ {m['rate']*100:.2f}% — {m['type']} (Expires: {m['expiry_date'].strftime('%B %d, %Y')})")
+        with col2:
+            if st.button("🗑️ Delete", key=f"delete_{i}"):
+                st.session_state.mortgages.pop(i)
+                st.success(f"Deleted Portion {i+1}")
+                st.experimental_rerun()
 
 # --- SECTION 4: Run Calculation ---
 st.header("4. Calculate Strategy Impact")
 
 if st.button("Run Calculation"):
-    st.subheader("🔍 Applying Offset to Expiring Portions")
+    today = datetime.today().date()
     offset_remaining = recommended_offset
     updated_mortgages = sorted(st.session_state.mortgages, key=lambda x: x['expiry_date'])
 
     results = []
     for m in updated_mortgages:
         applied = 0
-        if offset_remaining > 0 and m['type'] == "Fixed":
+        if (
+            offset_remaining > 0 
+            and m['type'] == "Fixed" 
+            and m['expiry_date'] > today
+        ):
             applied = min(offset_remaining, m['balance'])
             m['balance'] -= applied
             offset_remaining -= applied
         results.append({**m, "lump_sum_applied": applied})
 
     total_applied = sum(r["lump_sum_applied"] for r in results)
-
-    st.markdown(f"💵 **Lump Sum Applied to Mortgage**: **${total_applied:,.2f}**")
-    st.caption("🛈 Total offset funds applied to reduce fixed mortgage portions early.")
-
-    st.subheader("Updated Mortgage Balances")
-    st.caption("🛈 Mortgage balances after offset lump sum is applied.")
-    for i, r in enumerate(results):
-        st.markdown(f"**Portion {i+1}:** ${r['balance']:,.2f} @ {r['rate']*100:.2f}% — {r['type']} (Expires: {r['expiry_date'].strftime('%B %d, %Y')})")
-        if r['lump_sum_applied'] > 0:
-            st.markdown(f"➡️ ${r['lump_sum_applied']:,.2f} lump sum applied")
 
     # --- Final Results Table ---
     original_loan_amount = 300000
@@ -177,12 +138,16 @@ if st.button("Run Calculation"):
     original_total_interest = total_paid - original_loan_amount
 
     new_loan_amount = original_loan_amount - total_applied
-    new_num_months = -np.log(1 - new_loan_amount * monthly_rate / monthly_payment) / np.log(1 + monthly_rate)
-    new_total_paid = monthly_payment * new_num_months
-    new_total_interest = new_total_paid - new_loan_amount
+    if new_loan_amount <= 0:
+        new_total_interest = 0
+        years_saved = loan_term_years
+    else:
+        new_num_months = -np.log(1 - new_loan_amount * monthly_rate / monthly_payment) / np.log(1 + monthly_rate)
+        new_total_paid = monthly_payment * new_num_months
+        new_total_interest = new_total_paid - new_loan_amount
+        years_saved = loan_term_years - new_num_months / 12
 
     interest_saved = original_total_interest - new_total_interest
-    years_saved = loan_term_years - new_num_months / 12
 
     results_df_final = pd.DataFrame({
         "Metric": [
@@ -204,16 +169,3 @@ if st.button("Run Calculation"):
 
     st.subheader("📊 Full Strategy Comparison")
     st.dataframe(results_df_final, use_container_width=True)
-
-    # --- Plan Summary ---
-    first_expiry_date = updated_mortgages[0]['expiry_date']
-    first_balance = updated_mortgages[0]['balance'] + results[0]['lump_sum_applied']
-    reduced_balance = updated_mortgages[0]['balance']
-
-    st.markdown(
-        f"To maximize your strategy, consider applying a lump sum of <b>${total_applied:,.2f}</b> "
-        f"to the first expiring fixed loan before <b>{first_expiry_date.strftime('%B %d, %Y')}</b>, "
-        f"reducing its balance from <b>${first_balance:,.2f}</b> to <b>${reduced_balance:,.2f}</b>.",
-        unsafe_allow_html=True
-    )
-    st.caption("🛈 This step-by-step plan shows you how to time and apply your lump sum effectively.")
