@@ -16,48 +16,19 @@ bank_floating_rate = st.number_input("Your Bank's Floating Mortgage Rate (%)", m
 
 # --- Optional Credit Card Strategy ---
 use_credit_card = st.checkbox("Include Credit Card Strategy?", value=True,
-    help="Use a credit card to delay paying expenses, keeping cash in your offset account longer to reduce interest.")
+    help="This strategy involves using a credit card to delay paying regular expenses, keeping more cash in your offset account longer.")
 
 credit_card_buffer = 0
 credit_card_fee = 0
 
 if use_credit_card:
     st.subheader("Credit Card Use for Expense Delays")
-    st.markdown(
-        "💳 *Estimate how much of your monthly expenses you could put on a credit card, "
-        "even if you don’t currently use one.*"
-    )
+    st.markdown("💳 *Estimate how much of your monthly expenses could be delayed using a credit card, even if you don’t currently have one.*")
 
-    estimated_card_spend = st.number_input("Monthly Expenses You Could Put on a Credit Card ($)", min_value=0, value=3000)
-
-    interest_free_days = st.slider(
-        "Card’s Full Interest-Free Period (Days)",
-        min_value=0,
-        max_value=60,
-        value=45,
-        help="We’ll assume the cash stays in your offset account for half this period on average."
-    )
-
-    # --- Credit Card Fee Toggle ---
-    fee_mode = st.radio(
-        "How is your credit card fee charged?",
-        options=["Annual", "Monthly"],
-        horizontal=True
-    )
-
-    if fee_mode == "Annual":
-        credit_card_fee_input = st.number_input("Annual Credit Card Fee ($)", min_value=0, value=150)
-        credit_card_fee = credit_card_fee_input
-    else:
-        monthly_fee = st.number_input("Monthly Credit Card Fee ($)", min_value=0, value=12)
-        credit_card_fee = monthly_fee * 12  # Convert to annual for calculations
-
-    st.markdown(f"💰 Using an estimated **${credit_card_fee:,.2f} annual fee** for calculations.")
-
-    # Updated calculation: average offset duration is half the full interest-free period
-    average_offset_days = interest_free_days / 2
-    credit_card_buffer = estimated_card_spend * (average_offset_days / 30)
-
+    estimated_card_spend = st.number_input("Monthly Expenses You Could Pay with a Credit Card ($)", min_value=0, value=3000)
+    interest_free_days = st.slider("Average Interest-Free Period (days)", min_value=0, max_value=60, value=45)
+    credit_card_fee = st.number_input("Annual Credit Card Fee ($)", min_value=0, value=150)
+    credit_card_buffer = estimated_card_spend * (interest_free_days / 30)
     st.markdown(f"📊 Estimated Monthly Offset Benefit from Card Use: **${credit_card_buffer:,.2f}**")
 
 # --- SECTION 2: Recommended Offset Total (excluding credit card buffer) ---
@@ -135,10 +106,4 @@ if st.button("Run Calculation"):
     st.header("📝 Setup Plan Based on Your Results")
     first_expiry_date = updated_mortgages[0]['expiry_date']
     first_balance = updated_mortgages[0]['balance'] + results[0]['lump_sum_applied']
-    reduced_balance = updated_mortgages[0]['balance']
-
-    st.markdown(
-        f"To maximize your strategy, consider applying a lump sum of **${total_applied:,.2f}** "
-        f"to the first expiring fixed loan before **{first_expiry_date.strftime('%B %d, %Y')}**, "
-        f"reducing its balance from **${first_balance:,.2f}** to **${reduced_balance:,.2f}**."
-    )
+    reduced_balance = updated_mortgages
