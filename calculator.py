@@ -99,9 +99,14 @@ if st.session_state.mortgages:
             st.markdown(f"**Portion {i+1}:** ${m['balance']:,.2f} @ {m['rate']*100:.2f}% — {m['type']} (Expires: {m['expiry_date'].strftime('%B %d, %Y')})")
         with col2:
             if st.button("🗑️ Delete", key=f"delete_{i}"):
-                st.session_state.mortgages.pop(i)
-                st.success(f"Deleted Portion {i+1}")
-                st.experimental_rerun()
+                st.session_state.deleted_index = i
+
+# --- Safely Delete Mortgage (outside loop) ---
+if "deleted_index" in st.session_state:
+    idx = st.session_state.pop("deleted_index")
+    st.session_state.mortgages.pop(idx)
+    st.success(f"Deleted Portion {idx + 1}")
+    st.experimental_rerun()
 
 # --- SECTION 4: Run Calculation ---
 st.header("4. Calculate Strategy Impact")
