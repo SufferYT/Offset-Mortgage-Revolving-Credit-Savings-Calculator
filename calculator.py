@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 from datetime import datetime
 
 st.set_page_config(page_title="Offset Mortgage & Credit Strategy Tool", layout="centered")
@@ -58,7 +59,6 @@ if use_credit_card:
         value=45
     )
 
-    # --- Credit Card Fee Toggle ---
     fee_mode = st.radio(
         "How is your credit card fee charged?",
         options=["Annual", "Monthly"],
@@ -66,12 +66,11 @@ if use_credit_card:
     )
 
     if fee_mode == "Annual":
-        credit_card_fee_input = st.number_input(
+        credit_card_fee = st.number_input(
             "Annual Credit Card Fee ($)", 
             min_value=0, 
             value=150
         )
-        credit_card_fee = credit_card_fee_input
     else:
         monthly_fee = st.number_input(
             "Monthly Credit Card Fee ($)", 
@@ -80,7 +79,6 @@ if use_credit_card:
         )
         credit_card_fee = monthly_fee * 12
 
-    # Calculate buffer (but don’t display)
     average_offset_days = interest_free_days / 2
     credit_card_buffer = estimated_card_spend * (average_offset_days / 30)
 
@@ -131,7 +129,7 @@ with st.form("mortgage_entry_form"):
             st.session_state.mortgages.append(new_entry)
         else:
             st.session_state.mortgages[edit_index] = new_entry
-        st.experimental_rerun()
+        st.success("✅ Mortgage portion saved successfully.")
 
 if st.session_state.mortgages:
     st.subheader("📋 Mortgage List")
@@ -167,10 +165,7 @@ if st.button("Run Calculation"):
         if r['lump_sum_applied'] > 0:
             st.markdown(f"➡️ ${r['lump_sum_applied']:,.2f} lump sum applied")
 
-    # --- Final Result Table ---
-    import pandas as pd
-    import numpy as np
-
+    # --- Final Results Table ---
     original_loan_amount = 300000
     original_interest_rate = 0.055
     loan_term_years = 25
@@ -182,9 +177,8 @@ if st.button("Run Calculation"):
     original_total_interest = total_paid - original_loan_amount
 
     new_loan_amount = original_loan_amount - total_applied
-    new_monthly_payment = monthly_payment
-    new_num_months = -np.log(1 - new_loan_amount * monthly_rate / new_monthly_payment) / np.log(1 + monthly_rate)
-    new_total_paid = new_monthly_payment * new_num_months
+    new_num_months = -np.log(1 - new_loan_amount * monthly_rate / monthly_payment) / np.log(1 + monthly_rate)
+    new_total_paid = monthly_payment * new_num_months
     new_total_interest = new_total_paid - new_loan_amount
 
     interest_saved = original_total_interest - new_total_interest
@@ -211,7 +205,7 @@ if st.button("Run Calculation"):
     st.subheader("📊 Full Strategy Comparison")
     st.dataframe(results_df_final, use_container_width=True)
 
-    # --- Updated Plan Summary ---
+    # --- Plan Summary ---
     first_expiry_date = updated_mortgages[0]['expiry_date']
     first_balance = updated_mortgages[0]['balance'] + results[0]['lump_sum_applied']
     reduced_balance = updated_mortgages[0]['balance']
