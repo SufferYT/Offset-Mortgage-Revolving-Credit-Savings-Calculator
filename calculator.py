@@ -55,24 +55,21 @@ if use_credit_card:
         "Card’s Full Interest-Free Period (Days)",
         min_value=0,
         max_value=60,
-        value=45,
-        help="We’ll assume the money stays in your offset account for half of this period, on average."
+        value=45
     )
 
     # --- Credit Card Fee Toggle ---
     fee_mode = st.radio(
         "How is your credit card fee charged?",
         options=["Annual", "Monthly"],
-        horizontal=True,
-        help="Choose whether your card fee is charged yearly or monthly."
+        horizontal=True
     )
 
     if fee_mode == "Annual":
         credit_card_fee_input = st.number_input(
             "Annual Credit Card Fee ($)", 
             min_value=0, 
-            value=150,
-            help="The yearly fee for your credit card. This is subtracted from your estimated savings."
+            value=150
         )
         credit_card_fee = credit_card_fee_input
     else:
@@ -88,11 +85,13 @@ if use_credit_card:
     average_offset_days = interest_free_days / 2
     credit_card_buffer = estimated_card_spend * (average_offset_days / 30)
 
-# --- SECTION 2: Recommended Offset Total (excluding credit card buffer) ---
-st.header("2. Recommended Offset Balance (Base Only)")
+# --- SECTION 2: Recommended Offset Total ---
+st.header("2. Recommended Offset Balance")
 recommended_offset = emergency_fund + annual_savings
 st.markdown(f"✅ **Total Recommended Offset Account Balance**: **${recommended_offset:,.2f}**")
-st.caption("🛈 This is your base offset amount, made up of your emergency fund and annual savings.")
+st.caption(
+    "🛈 This balance includes only your savings and emergency fund — not the temporary monthly cash buffer created by credit card use."
+)
 
 # --- SECTION 3: Input/Edit Mortgages ---
 st.header("3. Your Mortgage Portions")
@@ -105,34 +104,15 @@ st.markdown("Add or edit your current mortgage portions:")
 with st.form("mortgage_entry_form", clear_on_submit=True):
     col1, col2 = st.columns(2)
     with col1:
-        balance = st.number_input(
-            "Loan Balance ($)", 
-            min_value=0, 
-            value=300000,
-            help="Enter the outstanding balance of this mortgage portion."
-        )
-        rate = st.number_input(
-            "Interest Rate (%)", 
-            min_value=0.0, 
-            value=5.5,
-            help="Interest rate for this mortgage portion."
-        ) / 100
+        balance = st.number_input("Loan Balance ($)", min_value=0, value=300000)
+        rate = st.number_input("Interest Rate (%)", min_value=0.0, value=5.5) / 100
     with col2:
-        expiry_date = st.date_input(
-            "Fixed Term Expiry Date", 
-            value=datetime.today(),
-            help="When this fixed loan portion expires. Helps prioritize lump sum repayment."
-        )
-        loan_type = st.selectbox(
-            "Loan Type", 
-            ["Fixed", "Floating"],
-            help="Only Fixed loans are prioritized for lump sum application."
-        )
+        expiry_date = st.date_input("Fixed Term Expiry Date", value=datetime.today())
+        loan_type = st.selectbox("Loan Type", ["Fixed", "Floating"])
     edit_index = st.selectbox(
         "Edit existing portion?", 
         options=[None] + list(range(len(st.session_state.mortgages))), 
-        format_func=lambda x: f"Portion {x+1}" if x is not None else "Add New",
-        help="Choose an existing loan to edit, or leave as 'Add New' to create a new one."
+        format_func=lambda x: f"Portion {x+1}" if x is not None else "Add New"
     )
     submit_mortgage = st.form_submit_button("Save Mortgage Portion")
 
@@ -196,7 +176,6 @@ if st.button("Run Calculation"):
         - **Floating vs Fixed Adjustment**: ${floating_cost:,.2f}
         """)
 
-    # --- Summary Plan ---
     st.header("📝 Setup Plan Based on Your Results")
     first_expiry_date = updated_mortgages[0]['expiry_date']
     first_balance = updated_mortgages[0]['balance'] + results[0]['lump_sum_applied']
@@ -207,4 +186,3 @@ if st.button("Run Calculation"):
         f"reducing its balance from **${first_balance:,.2f}** to **${reduced_balance:,.2f}**."
     )
     st.caption("🛈 This step-by-step plan shows you how to time and apply your lump sum effectively.")
-
